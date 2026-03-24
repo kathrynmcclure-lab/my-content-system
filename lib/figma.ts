@@ -97,7 +97,7 @@ export async function extractFullFile(fileKey: string): Promise<{ entries: Audit
   const token = process.env.FIGMA_TOKEN
   if (!token) throw new Error('FIGMA_TOKEN is not configured.')
 
-  const response = await fetch(`https://api.figma.com/v1/files/${fileKey}`, {
+  const response = await fetch(`https://api.figma.com/v1/files/${fileKey}?depth=10`, {
     headers: { 'X-Figma-Token': token },
   })
 
