@@ -6,7 +6,7 @@ Exports all copy from a Figma file into a Google Sheet — organised by full des
 
 ## How to invoke
 
-In the web app, select the **Content Audit** tab, paste a full Figma file URL, and click **Export to Google Sheets**.
+In the web app, select the **Content Audit** tab, paste a full Figma file URL, and click **Export to Excel**. The `.xlsx` file downloads automatically.
 
 ---
 
@@ -32,36 +32,14 @@ In the web app, select the **Content Audit** tab, paste a full Figma file URL, a
 
 ---
 
-## Setup required (one-time)
+## Setup required
 
-The audit feature requires a Google Cloud service account to create and write Google Sheets.
-
-### 1. Create a Google Cloud project and enable APIs
-1. Go to [console.cloud.google.com](https://console.cloud.google.com)
-2. Create a new project
-3. Enable **Google Sheets API** and **Google Drive API**
-
-### 2. Create a service account
-1. IAM & Admin → Service Accounts → Create Service Account
-2. Give it a name (e.g. "content-audit")
-3. Click through to the Keys tab → Add Key → JSON
-4. Download the JSON file
-
-### 3. Set environment variables
-From the downloaded JSON file, copy:
-- `client_email` → `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-- `private_key` → `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`
-
-Add to `.env.local` and to the Vercel dashboard:
-```
-GOOGLE_SERVICE_ACCOUNT_EMAIL=audit@your-project.iam.gserviceaccount.com
-GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n...
-GOOGLE_SHARE_EMAIL=your-email@company.com   # optional: auto-shares each sheet with you
-```
+No additional setup needed beyond the existing `FIGMA_TOKEN`. The audit exports a self-contained `.xlsx` file with embedded screen images — no Google account or cloud credentials required.
 
 ---
 
 ## Notes
-- Figma image URLs in the sheet are signed and expire after ~14 days. Re-run the audit to refresh them.
-- The Figma file must be accessible with your `FIGMA_TOKEN`. Make sure the token has read access to the file.
+- The `.xlsx` file opens in Excel, Google Sheets, or Numbers.
+- Screen images are embedded directly in the file — no links to expire.
 - Large files (hundreds of frames) may take 30-60 seconds to process.
+- The Figma file must be accessible with your `FIGMA_TOKEN`.

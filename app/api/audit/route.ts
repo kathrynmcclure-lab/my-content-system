@@ -1,25 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { extractFullFile, renderFrameImages, parseFigmaFileKey } from '@/lib/figma'
-import { createAuditSheet, AuditRow } from '@/lib/google-sheets'
+import { createAuditWorkbook, AuditRow } from '@/lib/excel'
 
 export async function POST(req: NextRequest) {
   try {
     const { figmaUrl } = await req.json()
 
     if (!figmaUrl?.trim()) {
-      return NextResponse.json({ error: 'No Figma URL provided.' }, { status: 400 })
+      return new Response(JSON.stringify({ error: 'No Figma URL provided.' }), { status: 400 })
     }
 
     const fileKey = parseFigmaFileKey(figmaUrl)
     if (!fileKey) {
-      return NextResponse.json({ error: 'Invalid Figma URL. Use a full file URL.' }, { status: 400 })
+      return new Response(JSON.stringify({ error: 'Invalid Figma URL. Use a full file URL.' }), { status: 400 })
     }
 
     // Step 1: Extract all text entries with full paths
     const { entries, fileName } = await extractFullFile(fileKey)
 
     if (entries.length === 0) {
-      return NextResponse.json({ error: 'No text found in this Figma file.' }, { status: 400 })
+      return new Response(JSON.stringify({ error: 'No text found in this Figma file.' }), { status: 400 })
     }
 
     // Step 2: Deduplicate by exact text content
@@ -45,12 +45,22 @@ export async function POST(req: NextRequest) {
       }))
       .sort((a, b) => a.path.localeCompare(b.path))
 
-    // Step 5: Create Google Sheet
-    const sheetUrl = await createAuditSheet(rows, fileName)
+    // Step 5: Generate Excel workbook
+    const buffer = await createAuditWorkbook(rows, fileName)
 
-    return NextResponse.json({ url: sheetUrl, rowCount: rows.length, fileName })
+    const safeName = fileName.replace(/[^a-z0-9]/gi, '-').toLowerCase()
+    const date = new Date().toISOString().split('T')[0]
+
+    return new Response(buffer, {
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="content-audit-${safeName}-${date}.xlsx"`,
+        'X-Row-Count': String(rows.length),
+        'X-File-Name': fileName,
+      },
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Audit failed.'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return new Response(JSON.stringify({ error: message }), { status: 500 })
   }
 }

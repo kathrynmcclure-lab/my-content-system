@@ -8,16 +8,16 @@ type AuditStatus = 'idle' | 'extracting' | 'rendering' | 'creating' | 'done' | '
 
 interface InputPanelProps {
   onRun: (text: string, tool: Tool, brief?: string) => void
-  onAuditComplete: (result: { url: string; rowCount: number; fileName: string }) => void
+  onAuditComplete: (result: { rowCount: number; fileName: string }) => void
   isRunning: boolean
 }
 
 const AUDIT_STATUS_LABELS: Record<AuditStatus, string> = {
-  idle: 'Export to Google Sheets',
+  idle: 'Export to Excel',
   extracting: 'Extracting copy…',
   rendering: 'Rendering screen images…',
-  creating: 'Creating Google Sheet…',
-  done: 'Done',
+  creating: 'Building spreadsheet…',
+  done: 'Export again',
   error: 'Try again',
 }
 
@@ -54,11 +54,10 @@ export default function InputPanel({ onRun, onAuditComplete, isRunning }: InputP
     setAuditError('')
     setAuditStatus('extracting')
 
-    try {
-      // Status progression: the API handles all steps but we update UI labels over time
-      const statusTimer1 = setTimeout(() => setAuditStatus('rendering'), 4000)
-      const statusTimer2 = setTimeout(() => setAuditStatus('creating'), 10000)
+    const statusTimer1 = setTimeout(() => setAuditStatus('rendering'), 4000)
+    const statusTimer2 = setTimeout(() => setAuditStatus('creating'), 10000)
 
+    try {
       const res = await fetch('/api/audit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -68,12 +67,31 @@ export default function InputPanel({ onRun, onAuditComplete, isRunning }: InputP
       clearTimeout(statusTimer1)
       clearTimeout(statusTimer2)
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error)
+      }
+
+      // Trigger file download
+      const blob = await res.blob()
+      const rowCount = Number(res.headers.get('X-Row-Count') ?? 0)
+      const fileName = res.headers.get('X-File-Name') ?? 'Figma file'
+      const disposition = res.headers.get('Content-Disposition') ?? ''
+      const nameMatch = disposition.match(/filename="(.+?)"/)
+      const downloadName = nameMatch ? nameMatch[1] : 'content-audit.xlsx'
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = downloadName
+      a.click()
+      URL.revokeObjectURL(url)
 
       setAuditStatus('done')
-      onAuditComplete(data)
+      onAuditComplete({ rowCount, fileName })
     } catch (err) {
+      clearTimeout(statusTimer1)
+      clearTimeout(statusTimer2)
       setAuditStatus('error')
       setAuditError(err instanceof Error ? err.message : 'Audit failed.')
     }
@@ -162,7 +180,7 @@ export default function InputPanel({ onRun, onAuditComplete, isRunning }: InputP
       {tool === 'audit' ? (
         <div className="space-y-4">
           <p className="text-xs text-gray-500">
-            Paste a full Figma file URL to export all copy into a Google Sheet with screen images and duplicate detection.
+            Paste a full Figma file URL to export all copy into an Excel file with screen images and duplicate detection.
           </p>
           <input
             type="url"

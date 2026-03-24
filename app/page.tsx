@@ -7,7 +7,6 @@ import ResultsPanel from '@/components/ResultsPanel'
 type Tool = 'tone' | 'pipeline' | 'audit'
 
 interface AuditResult {
-  url: string
   rowCount: number
   fileName: string
 }
@@ -97,16 +96,9 @@ export default function Home() {
               <h2 className="text-sm font-semibold text-gray-700">Audit complete</h2>
               <div className="bg-brand-gray rounded-xl p-4 space-y-1">
                 <p className="text-sm font-medium text-brand-dark">{auditResult.fileName}</p>
-                <p className="text-xs text-gray-500">{auditResult.rowCount} unique pieces of copy exported</p>
+                <p className="text-xs text-gray-500">{auditResult.rowCount} unique pieces of copy exported to Excel</p>
               </div>
-              <a
-                href={auditResult.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full py-3 bg-brand-red text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
-              >
-                Open Google Sheet →
-              </a>
+              <p className="text-xs text-gray-400">Your file downloaded automatically. Check your Downloads folder.</p>
             </div>
           ) : (
             <ResultsPanel output={output} isRunning={isRunning} tool={activeTool as 'tone' | 'pipeline'} />
