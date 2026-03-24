@@ -84,12 +84,16 @@ export async function createAuditWorkbook(
     // Embed image in Context column (col 3)
     const imgBuffer = imageBuffers.get(row.imageUrl)
     if (imgBuffer) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const imageId = workbook.addImage({ buffer: imgBuffer as any, extension: 'png' })
-      sheet.addImage(imageId, {
-        tl: { col: 2.1, row: rowIndex - 0.9 } as ExcelJS.Anchor,
-        ext: { width: IMG_WIDTH, height: IMG_HEIGHT },
-      })
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const imageId = workbook.addImage({ buffer: imgBuffer as any, extension: 'png' })
+        sheet.addImage(imageId, {
+          tl: { col: 2, row: rowIndex - 1 } as ExcelJS.Anchor,
+          ext: { width: IMG_WIDTH, height: IMG_HEIGHT },
+        })
+      } catch {
+        // If image embedding fails, leave the cell empty rather than corrupt the file
+      }
     }
 
     // Alternate row background

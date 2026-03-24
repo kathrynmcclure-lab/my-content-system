@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     const safeName = fileName.replace(/[^a-z0-9]/gi, '-').toLowerCase()
     const date = new Date().toISOString().split('T')[0]
 
-    return new Response(new Uint8Array(buffer), {
+    return new Response(buffer, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="content-audit-${safeName}-${date}.xlsx"`,
