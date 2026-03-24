@@ -1,22 +1,59 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+function getApiKey(): string {
+  const key = process.env.GEMINI_API_KEY
+  if (!key) throw new Error('GEMINI_API_KEY is not configured.')
+  return key
+}
 
 export async function streamText(
   systemPrompt: string,
   userMessage: string,
   onChunk: (text: string) => void
 ): Promise<void> {
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
-    systemInstruction: systemPrompt,
-  })
+  const apiKey = getApiKey()
 
-  const result = await model.generateContentStream(userMessage)
+  const response = await fetch(
+    `${GEMINI_BASE}:streamGenerateContent?alt=sse&key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+      }),
+    }
+  )
 
-  for await (const chunk of result.stream) {
-    const text = chunk.text()
-    if (text) onChunk(text)
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Gemini API error: ${response.status} — ${error}`)
+  }
+
+  const reader = response.body!.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      const jsonStr = line.slice(6).trim()
+      if (!jsonStr || jsonStr === '[DONE]') continue
+      try {
+        const chunk = JSON.parse(jsonStr)
+        const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text
+        if (text) onChunk(text)
+      } catch {
+        // skip malformed chunks
+      }
+    }
   }
 }
 
@@ -24,17 +61,32 @@ export async function extractTextFromImage(
   base64Image: string,
   mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
 ): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+  const apiKey = getApiKey()
 
-  const result = await model.generateContent([
+  const response = await fetch(
+    `${GEMINI_BASE}:generateContent?key=${apiKey}`,
     {
-      inlineData: {
-        data: base64Image,
-        mimeType: mediaType,
-      },
-    },
-    'Extract all visible text from this image exactly as written. Return only the text content, preserving line breaks. Do not add any commentary or formatting.',
-  ])
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { inline_data: { mime_type: mediaType, data: base64Image } },
+              { text: 'Extract all visible text from this image exactly as written. Return only the text content, preserving line breaks. Do not add any commentary or formatting.' },
+            ],
+          },
+        ],
+      }),
+    }
+  )
 
-  return result.response.text()
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Gemini API error: ${response.status} — ${error}`)
+  }
+
+  const data = await response.json()
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
 }
