@@ -41,14 +41,14 @@ export async function createAuditWorkbook(
 
   // Fetch all unique images up front
   const uniqueUrls = Array.from(new Set(rows.map(r => r.imageUrl).filter(Boolean)))
-  const imageBuffers = new Map<string, ArrayBuffer>()
+  const imageBuffers = new Map<string, Buffer>()
 
   await Promise.all(
     uniqueUrls.map(async url => {
       try {
         const res = await fetch(url)
         if (res.ok) {
-          imageBuffers.set(url, await res.arrayBuffer())
+          imageBuffers.set(url, Buffer.from(await res.arrayBuffer()))
         }
       } catch {
         // Skip images that fail to fetch
@@ -84,7 +84,8 @@ export async function createAuditWorkbook(
     // Embed image in Context column (col 3)
     const imgBuffer = imageBuffers.get(row.imageUrl)
     if (imgBuffer) {
-      const imageId = workbook.addImage({ buffer: imgBuffer, extension: 'png' })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const imageId = workbook.addImage({ buffer: imgBuffer as any, extension: 'png' })
       sheet.addImage(imageId, {
         tl: { col: 2.1, row: rowIndex - 0.9 } as ExcelJS.Anchor,
         ext: { width: IMG_WIDTH, height: IMG_HEIGHT },
