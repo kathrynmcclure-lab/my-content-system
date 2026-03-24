@@ -8,7 +8,7 @@ export async function streamText(
   onChunk: (text: string) => void
 ): Promise<void> {
   const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
+    model: 'gemini-2.0-flash',
     systemInstruction: systemPrompt,
   })
 
@@ -24,7 +24,7 @@ export async function extractTextFromImage(
   base64Image: string,
   mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
 ): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
   const result = await model.generateContent([
     {
