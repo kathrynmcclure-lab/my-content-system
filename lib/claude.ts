@@ -1,58 +1,25 @@
-const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash'
+import Anthropic from '@anthropic-ai/sdk'
 
-function getApiKey(): string {
-  const key = process.env.GEMINI_API_KEY
-  if (!key) throw new Error('GEMINI_API_KEY is not configured.')
-  return key
-}
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function streamText(
   systemPrompt: string,
   userMessage: string,
   onChunk: (text: string) => void
 ): Promise<void> {
-  const apiKey = getApiKey()
+  const stream = await anthropic.messages.stream({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 4096,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userMessage }],
+  })
 
-  const response = await fetch(
-    `${GEMINI_BASE}:streamGenerateContent?alt=sse&key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-      }),
-    }
-  )
-
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Gemini API error: ${response.status} — ${error}`)
-  }
-
-  const reader = response.body!.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
-
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue
-      const jsonStr = line.slice(6).trim()
-      if (!jsonStr || jsonStr === '[DONE]') continue
-      try {
-        const chunk = JSON.parse(jsonStr)
-        const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text
-        if (text) onChunk(text)
-      } catch {
-        // skip malformed chunks
-      }
+  for await (const chunk of stream) {
+    if (
+      chunk.type === 'content_block_delta' &&
+      chunk.delta.type === 'text_delta'
+    ) {
+      onChunk(chunk.delta.text)
     }
   }
 }
@@ -61,32 +28,26 @@ export async function extractTextFromImage(
   base64Image: string,
   mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
 ): Promise<string> {
-  const apiKey = getApiKey()
-
-  const response = await fetch(
-    `${GEMINI_BASE}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 2048,
+    messages: [
+      {
+        role: 'user',
+        content: [
           {
-            role: 'user',
-            parts: [
-              { inline_data: { mime_type: mediaType, data: base64Image } },
-              { text: 'Extract all visible text from this image exactly as written. Return only the text content, preserving line breaks. Do not add any commentary or formatting.' },
-            ],
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType, data: base64Image },
+          },
+          {
+            type: 'text',
+            text: 'Extract all visible text from this image exactly as written. Return only the text content, preserving line breaks. Do not add any commentary or formatting.',
           },
         ],
-      }),
-    }
-  )
+      },
+    ],
+  })
 
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Gemini API error: ${response.status} — ${error}`)
-  }
-
-  const data = await response.json()
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  const block = response.content[0]
+  return block.type === 'text' ? block.text : ''
 }
