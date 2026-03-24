@@ -11,7 +11,7 @@ export interface AuditRow {
 export async function createAuditWorkbook(
   rows: AuditRow[],
   fileName: string
-): Promise<Buffer> {
+): Promise<Uint8Array> {
   const workbook = new ExcelJS.Workbook()
   workbook.creator = 'Ox & Adder Content Tools'
   workbook.created = new Date()
@@ -102,5 +102,5 @@ export async function createAuditWorkbook(
 
   // Write to buffer
   const buffer = await workbook.xlsx.writeBuffer()
-  return Buffer.from(buffer)
+  return new Uint8Array(buffer)
 }
