@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Step 3: Render frame images for all unique frames
-    const uniqueFrameIds = [...new Set(entries.map(e => e.frameId))]
+    const uniqueFrameIds = Array.from(new Set(entries.map(e => e.frameId)))
     const imageMap = await renderFrameImages(fileKey, uniqueFrameIds)
 
     // Step 4: Build deduplicated rows sorted by path

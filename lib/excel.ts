@@ -40,7 +40,7 @@ export async function createAuditWorkbook(
   })
 
   // Fetch all unique images up front
-  const uniqueUrls = [...new Set(rows.map(r => r.imageUrl).filter(Boolean))]
+  const uniqueUrls = Array.from(new Set(rows.map(r => r.imageUrl).filter(Boolean)))
   const imageBuffers = new Map<string, Buffer>()
 
   await Promise.all(
